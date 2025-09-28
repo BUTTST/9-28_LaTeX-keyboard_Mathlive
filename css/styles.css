@@ -1,0 +1,295 @@
+  :root{
+    --bg:#0f1115; --panel:#151823; --text:#e6e9ef; --muted:#9aa4b2;
+    --border:#232a3a; --btn:#1a2130; --btn-hover:#263043; --accent:#60a5fa;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html,body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;height:100%;}
+  body{margin:0;display:flex;justify-content:center;align-items:flex-start;}
+  .app{width:min(1080px,100%);margin:16px;padding:16px;border-radius:16px;background:var(--panel);border:1px solid var(--border);box-shadow:0 18px 40px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:16px}
+  .brand{display:flex;align-items:center;justify-content:space-between}
+  .brand-title{font-size:24px;font-weight:600;letter-spacing:1px}
+  .brand-subtitle{font-size:14px;font-weight:500;color:var(--muted);margin-left:10px}
+  .brand-link{font-size:12px;color:var(--muted);text-decoration:none;padding:6px 12px;border:1px solid transparent;border-radius:999px;transition:color .15s ease,border-color .15s ease,background .15s ease}
+  .brand-link:hover{color:var(--accent);border-color:rgba(96,165,250,.5);background:rgba(96,165,250,.12)}
+  .input-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  math-field{flex:1;min-width:320px;padding:10px 12px;font-size:20px;border-radius:12px;background:#0d1117;border:1px solid var(--border);color:var(--text)}
+  select,button{background:var(--btn);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:14px;cursor:pointer;transition:background .15s ease,transform .1s ease}
+  button:hover,select:hover{background:var(--btn-hover)}
+  button:active{transform:translateY(1px)}
+  .toolbar{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+  .toolbar-left,.toolbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+  .mode-history-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: relative;
+  }
+
+  .history-dropdown {
+    position: relative;
+  }
+
+  .history-toggle {
+    width: 100%;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #101522;
+    font-size: 13px;
+  }
+  
+  .history-menu {
+    position: absolute;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-top: 4px;
+    width: 250px;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 10;
+    box-shadow: 0 8px 20px rgba(0,0,0,.25);
+  }
+
+  .history-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    line-height: 1.5;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .history-item:last-child {
+    border-bottom: none;
+  }
+  .history-item:hover {
+    background: var(--btn-hover);
+  }
+  .history-item .katex {
+    font-size: 1em !important;
+  }
+  .history-item-label {
+    font-size: 10px;
+    color: var(--danger);
+    font-weight: 600;
+    margin-right: 8px;
+  }
+
+  .layout-grid{
+    display:grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 12px;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 12px;
+    background: #101522;
+  }
+  .panel{border:1px solid var(--border); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:12px;}
+  .panel-common{grid-column: 1 / 2;}
+  .panel-numbers{grid-column: 2 / 3;}
+  .panel-other{grid-column: 1 / 3;}
+
+  .panel-header{display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+  .panel-title{font-size:18px;font-weight:600;}
+  .panel-body{display:grid;gap:10px}
+  .panel-body.collapsed { display: none; }
+  
+  .keys-common, .keys-other { grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));}
+  .keys-numbers {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(4, auto);
+    gap: 10px;
+    max-width: 180px;
+    margin: 0 auto;
+  }
+  .keys-numbers .key { aspect-ratio: 1 / 1; }
+  .keys-numbers .key[data-key="0"] { 
+    grid-column: 1 / span 2; 
+    aspect-ratio: auto;
+  }
+  
+  .key{padding:12px;border-radius:10px;text-align:center;cursor:pointer;font-size:18px;transition:background .15s ease,box-shadow .15s ease; display:flex; justify-content:center; align-items:center;}
+  .key:hover{background:var(--btn-hover);box-shadow:0 4px 12px rgba(96,165,200,.1)}
+  .panel-hint{display: none;}
+
+  .legend-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .legend-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--muted);
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 10px;
+  }
+  .key-legend {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 8px;
+    border-radius: 10px;
+    background: var(--btn);
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .legend-desc {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .legend-desc b {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* 響應式設計 - 手機端適配 */
+  @media (max-width: 767px) {
+    .app { margin: 8px; padding: 12px; gap: 12px; }
+    
+    .brand { flex-direction: column; gap: 8px; align-items: flex-start; }
+    .brand-title { font-size: 20px; }
+    .brand-subtitle { margin-left: 0; }
+    .brand-link { align-self: flex-start; }
+    
+    .input-row { flex-direction: column; gap: 8px; }
+    math-field { min-width: unset; width: 100%; font-size: 18px; }
+    .mode-history-container { width: 100%; }
+    select { width: 100%; }
+    
+    .toolbar { justify-content: center; }
+    .toolbar-left { justify-content: center; flex-wrap: wrap; }
+    button { padding: 12px 16px; font-size: 16px; min-height: 44px; }
+    
+    /* 手機端佈局：縱向堆疊 */
+    .layout-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .panel { order: 0; }
+    .panel-numbers { order: 1; max-width: none; }
+    .panel-other { order: 2; }
+    
+    /* 觸控友善的按鈕 */
+    .key {
+      min-height: 48px;
+      padding: 14px 8px;
+      font-size: 20px;
+      touch-action: manipulation;
+    }
+    
+    .keys-common, .keys-other {
+      grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+      gap: 12px;
+    }
+    
+    .keys-numbers {
+      max-width: 300px;
+      gap: 12px;
+      margin: 0 auto;
+    }
+    
+    .keys-numbers .key {
+      min-height: 56px;
+      font-size: 24px;
+    }
+    
+    /* 歷史記錄選單優化 */
+    .history-menu {
+      width: 90vw;
+      max-width: 350px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    
+    .history-item {
+      padding: 14px;
+      font-size: 16px;
+    }
+    
+    /* 圖例區在手機端可折疊 */
+    .legend-section {
+      margin-top: 12px;
+      padding-top: 12px;
+    }
+    
+    .legend-item {
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    
+    .key-legend {
+      width: 48px;
+      height: 48px;
+      font-size: 20px;
+    }
+    
+    .legend-desc {
+      font-size: 15px;
+    }
+  }
+  
+  /* 極小螢幕優化 */
+  @media (max-width: 480px) {
+    .app { margin: 4px; padding: 8px; }
+    .brand-title { font-size: 18px; }
+    math-field { font-size: 16px; }
+    
+    .keys-common, .keys-other {
+      grid-template-columns: repeat(auto-fill, minmax(55px, 1fr));
+    }
+    
+    .keys-numbers {
+      max-width: 280px;
+    }
+  }
+
+  /* 觸控裝置額外優化 */
+  @media (pointer: coarse) {
+    .key {
+      user-select: none;
+      -webkit-tap-highlight-color: rgba(96,165,250,0.2);
+    }
+    
+    .key:active {
+      background: var(--accent);
+      color: white;
+      transform: scale(0.95);
+    }
+    
+    button:active {
+      background: var(--accent);
+      color: white;
+    }
+    
+    /* 防止長按選單 */
+    .key, button, select {
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      -khtml-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+    
+    /* 確保 math-field 可以選擇文字 */
+    math-field {
+      user-select: text;
+      -webkit-user-select: text;
+    }
+  }
