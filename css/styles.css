@@ -12,10 +12,19 @@
   .brand-link{font-size:12px;color:var(--muted);text-decoration:none;padding:6px 12px;border:1px solid transparent;border-radius:999px;transition:color .15s ease,border-color .15s ease,background .15s ease}
   .brand-link:hover{color:var(--accent);border-color:rgba(96,165,250,.5);background:rgba(96,165,250,.12)}
   .input-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-  math-field{flex:1;min-width:320px;padding:10px 12px;font-size:20px;border-radius:12px;background:#0d1117;border:1px solid var(--border);color:var(--text)}
-  select,button{background:var(--btn);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:14px;cursor:pointer;transition:background .15s ease,transform .1s ease}
+  #input-field{flex:1;min-width:320px;padding:10px 12px;font-size:18px;line-height:1.5;border-radius:12px;background:#0d1117;border:1px solid var(--border);color:var(--text);font-family:monospace;resize:vertical;}
+  #input-field:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(96,165,250,0.2);}
+  select,button{background:var(--btn);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:14px;cursor:pointer;transition:background .15s ease,transform .1s ease,color .15s ease,box-shadow .15s ease}
   button:hover,select:hover{background:var(--btn-hover)}
   button:active{transform:translateY(1px)}
+  
+  /* 主要按鈕樣式 */
+  .btn-primary{background:var(--accent);color:white;font-weight:600;border-color:var(--accent);box-shadow:0 2px 8px rgba(96,165,250,0.3);}
+  .btn-primary:hover{background:#4a90e2;box-shadow:0 4px 12px rgba(96,165,250,0.4);}
+  
+  /* 次要按鈕樣式 */
+  .btn-secondary{background:var(--btn);border-color:var(--border);}
+  .btn-secondary:hover{background:var(--btn-hover);}
   .toolbar{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
   .toolbar-left,.toolbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
@@ -116,6 +125,10 @@
   .key{padding:12px;border-radius:10px;text-align:center;cursor:pointer;font-size:18px;transition:background .15s ease,box-shadow .15s ease; display:flex; justify-content:center; align-items:center;}
   .key:hover{background:var(--btn-hover);box-shadow:0 4px 12px rgba(96,165,200,.1)}
   .panel-hint{display: none;}
+  
+  .current-content-section{padding:16px;border-radius:12px;background:#0d1117;border:1px solid var(--border);margin-top:8px;}
+  .current-content-title{font-size:14px;font-weight:600;color:var(--muted);margin-bottom:8px;}
+  .current-content-display{font-family:monospace;font-size:16px;line-height:1.6;color:var(--text);word-break:break-all;white-space:pre-wrap;min-height:24px;padding:8px;background:#000;border-radius:8px;}
 
   .legend-section {
     margin-top: 16px;
@@ -166,7 +179,7 @@
     .brand-link { align-self: flex-start; }
     
     .input-row { flex-direction: column; gap: 8px; }
-    math-field { min-width: unset; width: 100%; font-size: 18px; }
+    #input-field { min-width: unset; width: 100%; font-size: 16px; }
     .mode-history-container { width: 100%; }
     select { width: 100%; }
     
@@ -248,7 +261,7 @@
   @media (max-width: 480px) {
     .app { margin: 4px; padding: 8px; }
     .brand-title { font-size: 18px; }
-    math-field { font-size: 16px; }
+    #input-field { font-size: 15px; }
     
     .keys-common, .keys-other {
       grid-template-columns: repeat(auto-fill, minmax(55px, 1fr));
@@ -256,6 +269,10 @@
     
     .keys-numbers {
       max-width: 280px;
+    }
+    
+    .current-content-display {
+      font-size: 14px;
     }
   }
 
@@ -287,8 +304,8 @@
       user-select: none;
     }
     
-    /* 確保 math-field 可以選擇文字 */
-    math-field {
+    /* 確保 input-field 可以選擇文字 */
+    #input-field {
       user-select: text;
       -webkit-user-select: text;
     }

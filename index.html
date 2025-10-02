@@ -3,26 +3,23 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
-<title>離散數學迷你鍵盤 PWA v7</title>
+<title>離散數學迷你鍵盤 PWA v8</title>
 <meta name="theme-color" content="#151823"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="離散數學鍵盤"/>
 <link rel="manifest" href="manifest.json"/>
-<link rel="stylesheet" href="css/styles.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex/dist/katex.min.css">
-<script defer src="https://cdn.jsdelivr.net/npm/katex/dist/katex.min.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/mathlive/dist/mathlive.min.js"></script>
+<link rel="stylesheet" href="css/styles.css?v=v8.0.2">
 </head>
 <body>
 <div class="app">
   <div class="brand">
-    <div class="brand-title">Mathlive <span class="brand-subtitle">LaTeX 虛擬鍵盤 [v7]</span></div>
-    <a class="brand-link" href="https://mathlive.io/mathfield/virtual-keyboard/" target="_blank" rel="noopener">官方鍵盤指南</a>
+    <div class="brand-title">離散數學鍵盤 <span class="brand-subtitle">LaTeX 輸入工具 [v8]</span></div>
   </div>
 
   <div class="input-row">
-    <math-field id="mf" virtual-keyboard-mode="off"></math-field>
+    <textarea id="input-field" placeholder="在此輸入或點擊符號按鈕..." rows="3"></textarea>
     <div class="mode-history-container">
       <select id="mode">
         <option value="latex">輸入/複製 LaTeX</option>
@@ -37,8 +34,8 @@
 
   <div class="toolbar">
     <div class="toolbar-left">
-      <button id="copy-latex">複製 LaTeX</button>
-      <button id="copy-unicode">複製符號</button>
+      <button id="copy-unicode" class="btn-primary">📋 複製符號</button>
+      <button id="copy-latex" class="btn-secondary">📄 複製 LaTeX</button>
       <button id="clear">清空</button>
     </div>
   </div>
@@ -61,7 +58,10 @@
     </div>
   </div>
 
-  <div id="render"></div>
+  <div class="current-content-section">
+    <div class="current-content-title">當前輸入內容 (LaTeX):</div>
+    <div id="render" class="current-content-display"></div>
+  </div>
   <div class="panel-hint">＊點擊按鈕即可輸入對應符號。</div>
 
   <div class="legend-section">
@@ -93,7 +93,7 @@
   </div>
 </div>
 
-<script src="js/app.js"></script>
+<script src="js/app.js?v=v8.0.2"></script>
 </body>
 </html>
 

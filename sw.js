@@ -1,12 +1,9 @@
-const CACHE_NAME = 'discrete-math-keyboard-v7';
+const CACHE_NAME = 'discrete-math-keyboard-v8';
 const urlsToCache = [
   './index.html',
   './css/styles.css',
   './js/app.js',
-  './manifest.json',
-  'https://cdn.jsdelivr.net/npm/katex/dist/katex.min.css',
-  'https://cdn.jsdelivr.net/npm/katex/dist/katex.min.js',
-  'https://cdn.jsdelivr.net/npm/mathlive/dist/mathlive.min.js'
+  './manifest.json'
 ];
 
 // 安裝 Service Worker
@@ -27,35 +24,30 @@ self.addEventListener('install', event => {
 
 // 攔截網路請求
 self.addEventListener('fetch', event => {
+  const req = event.request;
+  const url = new URL(req.url);
+
+  // 僅處理 http/https 請求，避免 chrome-extension 等 scheme 造成錯誤
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return; // 讓瀏覽器自行處理
+  }
+
   event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // 如果在快取中找到，返回快取版本
-        if (response) {
-          return response;
-        }
-        
-        // 否則從網路獲取
-        return fetch(event.request).then(response => {
-          // 檢查是否收到有效的回應
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
+    caches.match(req)
+      .then(cached => {
+        if (cached) return cached;
+        return fetch(req).then(networkRes => {
+          // 僅快取 200 的基本類型回應
+          if (!networkRes || networkRes.status !== 200 || networkRes.type !== 'basic') {
+            return networkRes;
           }
-          
-          // 複製回應
-          const responseToCache = response.clone();
-          
-          caches.open(CACHE_NAME)
-            .then(cache => {
-              cache.put(event.request, responseToCache);
-            });
-          
-          return response;
+          const resClone = networkRes.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(req, resClone)).catch(() => {});
+          return networkRes;
         });
       })
       .catch(() => {
-        // 網路和快取都失敗時的後備處理
-        if (event.request.destination === 'document') {
+        if (req.destination === 'document') {
           return caches.match('./index.html');
         }
       })

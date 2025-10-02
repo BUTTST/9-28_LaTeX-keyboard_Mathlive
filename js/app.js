@@ -1,14 +1,107 @@
-const MF = document.getElementById('mf');
+const INPUT_FIELD = document.getElementById('input-field');
 const MODE = document.getElementById('mode');
 const RENDER = document.getElementById('render');
 const HISTORY_DROPDOWN = document.getElementById('history-dropdown');
 const HISTORY_TOGGLE = document.getElementById('history-toggle');
 const HISTORY_MENU = document.getElementById('history-menu');
 
-const HISTORY_KEY = 'mini-mathpad-history-v7';
+const HISTORY_KEY = 'mini-mathpad-history-v8';
 const MAX_HISTORY_SIZE = 30;
 let historyStack = [];
 let historySaveTimeout = null;
+
+// LaTeX 到 Unicode 符號的映射表（包含帶空格和不帶空格的版本）
+const LATEX_TO_UNICODE = {
+  '\\sim ': '~',
+  '\\sim': '~',
+  '\\to ': '→',
+  '\\to': '→',
+  '\\land ': '∧',
+  '\\land': '∧',
+  '\\lor ': '∨',
+  '\\lor': '∨',
+  '\\equiv ': '≡',
+  '\\equiv': '≡',
+  '\\{': '{',
+  '\\}': '}',
+  '\\cup ': '∪',
+  '\\cup': '∪',
+  '\\setminus ': '∖',
+  '\\setminus': '∖',
+  '\\subseteq ': '⊆',
+  '\\subseteq': '⊆',
+  '\\cap ': '∩',
+  '\\cap': '∩',
+  '\\subset ': '⊂',
+  '\\subset': '⊂',
+  '\\in ': '∈',
+  '\\in': '∈',
+  '\\notin ': '∉',
+  '\\notin': '∉',
+  '\\exists ': '∃',
+  '\\exists': '∃',
+  '\\neg ': '¬',
+  '\\neg': '¬',
+  '\\oplus ': '⊕',
+  '\\oplus': '⊕',
+  '\\leftrightarrow ': '↔',
+  '\\leftrightarrow': '↔',
+  '\\uparrow ': '↑',
+  '\\uparrow': '↑',
+  '\\forall ': '∀',
+  '\\forall': '∀',
+  '\\neq ': '≠',
+  '\\neq': '≠',
+  '\\downarrow ': '↓',
+  '\\downarrow': '↓',
+  '\\leq ': '≤',
+  '\\leq': '≤',
+  '\\geq ': '≥',
+  '\\geq': '≥',
+  '\\vdash ': '⊢',
+  '\\vdash': '⊢',
+  '\\models ': '⊨',
+  '\\models': '⊨',
+  '\\Longrightarrow ': '⟹',
+  '\\Longrightarrow': '⟹',
+  '\\Longleftrightarrow ': '⟺',
+  '\\Longleftrightarrow': '⟺'
+};
+
+// Unicode 到 LaTeX 的反向映射表（只保留帶空格的版本）
+const UNICODE_TO_LATEX = {
+  '~': '\\sim ',
+  '→': '\\to ',
+  '∧': '\\land ',
+  '∨': '\\lor ',
+  '≡': '\\equiv ',
+  '{': '\\{',
+  '}': '\\}',
+  '∪': '\\cup ',
+  '∖': '\\setminus ',
+  '⊆': '\\subseteq ',
+  '∩': '\\cap ',
+  '⊂': '\\subset ',
+  '∈': '\\in ',
+  '∉': '\\notin ',
+  '∃': '\\exists ',
+  '¬': '\\neg ',
+  '⊕': '\\oplus ',
+  '↔': '\\leftrightarrow ',
+  '↑': '\\uparrow ',
+  '∀': '\\forall ',
+  '≠': '\\neq ',
+  '↓': '\\downarrow ',
+  '≤': '\\leq ',
+  '≥': '\\geq ',
+  '⊢': '\\vdash ',
+  '⊨': '\\models ',
+  '⟹': '\\Longrightarrow ',
+  '⟺': '\\Longleftrightarrow '
+};
+
+// 當前存儲的 LaTeX 代碼（用於複製和顯示）
+let currentLatexCode = '';
 
 const KEY_DATA = {
   common: [
@@ -90,15 +183,7 @@ function updateHistoryDropdown() {
     
     const contentDiv = document.createElement('div');
     contentDiv.style.flex = '1';
-    
-    try {
-      contentDiv.innerHTML = katex.renderToString(item.latex, {
-        throwOnError: false,
-        displayMode: false
-      });
-    } catch (e) {
-      contentDiv.textContent = item.latex;
-    }
+    contentDiv.textContent = item.latex;
     
     historyItemEl.appendChild(contentDiv);
     
@@ -112,7 +197,13 @@ function updateHistoryDropdown() {
     }
 
     historyItemEl.addEventListener('click', () => {
-      MF.setValue(item.latex);
+      if (MODE.value === 'latex') {
+        currentLatexCode = item.latex;
+        INPUT_FIELD.value = latexToUnicode(item.latex);
+      } else {
+        INPUT_FIELD.value = item.latex;
+        currentLatexCode = '';
+      }
       renderFormula();
       HISTORY_MENU.style.display = 'none';
     });
@@ -134,23 +225,75 @@ function createKeyBtn(key){
 function insertToken(key){
   const latex = key.latex ?? key.label;
   const unicode = key.uni ?? key.label;
+  
+  // 獲取當前光標位置
+  const start = INPUT_FIELD.selectionStart;
+  const end = INPUT_FIELD.selectionEnd;
+  const currentValue = INPUT_FIELD.value || '';
+  
   if (MODE.value === 'latex') {
-    // Use MathLive's insert method to correctly handle spacing
-    MF.insert(latex, { insertionMode: 'insertPast', selectionMode: 'after' });
+    // LaTeX 模式：在輸入框顯示符號，在 LaTeX 代碼中記錄
+    // 直接使用按鈕的 label（這就是符號）
+    const displaySymbol = key.label;
+    
+    // 更新輸入框（顯示符號）
+    INPUT_FIELD.value = currentValue.substring(0, start) + displaySymbol + currentValue.substring(end);
+    
+    // 更新 LaTeX 代碼
+    const beforeLatex = unicodeToLatex(currentValue.substring(0, start));
+    const afterLatex = unicodeToLatex(currentValue.substring(end));
+    currentLatexCode = beforeLatex + latex + afterLatex;
+    
+    // 設置新的光標位置
+    const newPos = start + displaySymbol.length;
+    INPUT_FIELD.setSelectionRange(newPos, newPos);
   } else {
-    // For plain text, direct manipulation is fine
-    MF.value = (MF.value||'') + unicode;
+    // Unicode 模式：直接插入符號
+    INPUT_FIELD.value = currentValue.substring(0, start) + unicode + currentValue.substring(end);
+    currentLatexCode = INPUT_FIELD.value;
+    
+    // 設置新的光標位置
+    const newPos = start + unicode.length;
+    INPUT_FIELD.setSelectionRange(newPos, newPos);
   }
-  MF.focus();
+  
+  INPUT_FIELD.focus();
   renderFormula();
 }
 
+// 將 Unicode 符號轉換回 LaTeX
+function unicodeToLatex(text) {
+  let result = text;
+  for (const [unicode, latex] of Object.entries(UNICODE_TO_LATEX)) {
+    result = result.split(unicode).join(latex);
+  }
+  return result;
+}
+
+// 將 LaTeX 轉換為 Unicode 符號（優先處理長命令）
+function latexToUnicode(text) {
+  if (!text) return '';
+  let result = text;
+  
+  // 按命令長度排序，先處理長命令避免誤替換
+  const sortedEntries = Object.entries(LATEX_TO_UNICODE).sort((a, b) => b[0].length - a[0].length);
+  
+  for (const [latexCmd, unicode] of sortedEntries) {
+    // 使用全局替換
+    while (result.includes(latexCmd)) {
+      result = result.replace(latexCmd, unicode);
+    }
+  }
+  
+  return result;
+}
+
 function renderFormula(){
-  RENDER.innerHTML = '';
-  try{
-    katex.render(MF.getValue('latex-expanded') || '\\;', RENDER);
-  }catch(err){
-    RENDER.textContent = 'LaTeX 錯誤：' + err.message;
+  // 下方顯示區始終顯示 LaTeX 代碼
+  if (MODE.value === 'latex') {
+    RENDER.textContent = currentLatexCode || '(空白)';
+  } else {
+    RENDER.textContent = INPUT_FIELD.value || '(空白)';
   }
 }
 
@@ -164,23 +307,63 @@ function populateKeys() {
   KEY_DATA.other.forEach(k => otherContainer.appendChild(createKeyBtn(k)));
 }
 
-document.getElementById('copy-latex').onclick = () => navigator.clipboard.writeText(MF.getValue('latex-expanded')||'');
-document.getElementById('copy-unicode').onclick = () => navigator.clipboard.writeText(MF.value||'');
+// 複製符號按鈕 - 始終複製輸入框中的符號
+document.getElementById('copy-unicode').onclick = () => {
+  const content = INPUT_FIELD.value || '';
+  navigator.clipboard.writeText(content);
+  showCopyFeedback('copy-unicode', '✓ 已複製符號');
+};
+
+// 複製 LaTeX 按鈕 - 複製對應的 LaTeX 代碼
+document.getElementById('copy-latex').onclick = () => {
+  const content = MODE.value === 'latex' ? currentLatexCode : unicodeToLatex(INPUT_FIELD.value);
+  navigator.clipboard.writeText(content || '');
+  showCopyFeedback('copy-latex', '✓ 已複製 LaTeX');
+};
+
 document.getElementById('clear').onclick = () => {
-  const currentLatex = MF.getValue();
-  if (currentLatex.trim()) {
-    addToHistory(currentLatex, { cleared: true });
+  const contentToSave = MODE.value === 'latex' ? currentLatexCode : INPUT_FIELD.value;
+  if (contentToSave.trim()) {
+    addToHistory(contentToSave, { cleared: true });
   }
-  MF.setValue(''); 
-  MF.value=''; 
+  INPUT_FIELD.value = '';
+  currentLatexCode = '';
   renderFormula();
 };
+
+function showCopyFeedback(buttonId, feedbackText = '✓ 已複製') {
+  const button = document.getElementById(buttonId);
+  const originalText = button.textContent;
+  const originalBg = button.style.background;
+  
+  button.textContent = feedbackText;
+  button.style.background = '#10b981'; // 綠色表示成功
+  
+  setTimeout(() => {
+    button.textContent = originalText;
+    button.style.background = originalBg;
+  }, 1200);
+}
 
 const toggleOtherBtn = document.getElementById('toggle-other');
 const otherKeysBody = document.getElementById('keys-other');
 toggleOtherBtn.addEventListener('click', () => {
   const isHidden = otherKeysBody.classList.toggle('collapsed');
   toggleOtherBtn.textContent = isHidden ? '顯示' : '隱藏';
+});
+
+// 監聽模式切換
+MODE.addEventListener('change', () => {
+  if (MODE.value === 'latex') {
+    // 切換到 LaTeX 模式：將輸入框內容轉換為符號顯示
+    const currentValue = INPUT_FIELD.value;
+    currentLatexCode = unicodeToLatex(currentValue);
+    INPUT_FIELD.value = latexToUnicode(currentLatexCode);
+  } else {
+    // 切換到 Unicode 模式：保持輸入框內容不變
+    currentLatexCode = '';
+  }
+  renderFormula();
 });
 
 HISTORY_TOGGLE.addEventListener('click', () => {
@@ -199,10 +382,20 @@ document.addEventListener('click', (e) => {
 let deferredPrompt;
 let installButton = null;
 
-// 註冊 Service Worker
+// 註冊 Service Worker（開發環境下停用，避免快取干擾）
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
+    const isLocal = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
+    if (isLocal) {
+      // 解除現有 SW 並清快取
+      navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
+      if (window.caches) {
+        caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+      }
+      console.log('SW disabled in dev (localhost).');
+      return;
+    }
+    navigator.serviceWorker.register('./sw.js?v=v8.0.2')
       .then(registration => {
         console.log('SW registered: ', registration);
       })
@@ -275,15 +468,104 @@ window.addEventListener('appinstalled', () => {
   }
 });
 
+// 轉換輸入框中的 LaTeX 為符號
+function convertInputToSymbols() {
+  if (MODE.value === 'latex') {
+    const currentValue = INPUT_FIELD.value;
+    if (currentValue.includes('\\')) {
+      // 保存原始 LaTeX 代碼
+      currentLatexCode = currentValue;
+      // 轉換為符號並更新輸入框
+      const converted = latexToUnicode(currentLatexCode);
+      INPUT_FIELD.value = converted;
+      console.log('轉換:', currentLatexCode, '→', converted);
+    } else {
+      // 已經是符號，反向轉換得到 LaTeX
+      currentLatexCode = unicodeToLatex(currentValue);
+    }
+    renderFormula();
+  }
+}
+
+// 強制清理輸入框中的 LaTeX 代碼
+function forceCleanInput() {
+  if (MODE.value === 'latex' && INPUT_FIELD.value.includes('\\')) {
+    const cursorPos = INPUT_FIELD.selectionStart;
+    const original = INPUT_FIELD.value;
+    const cleaned = latexToUnicode(original);
+    INPUT_FIELD.value = cleaned;
+    
+    // 盡量保持光標位置
+    const newPos = Math.min(cursorPos, cleaned.length);
+    INPUT_FIELD.setSelectionRange(newPos, newPos);
+    
+    currentLatexCode = unicodeToLatex(cleaned);
+    console.log('強制清理:', original, '→', cleaned);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   populateKeys();
   loadHistory();
+  
+  // 初始化：立即轉換任何 LaTeX 代碼
+  setTimeout(() => {
+    forceCleanInput();
+  }, 50);
+  
   renderFormula();
-  MF.addEventListener('input', () => {
+  
+  // 監聽輸入事件 - 即時轉換 LaTeX 為符號
+  INPUT_FIELD.addEventListener('input', (e) => {
+    if (MODE.value === 'latex') {
+      // 立即強制清理
+      forceCleanInput();
+    } else {
+      currentLatexCode = '';
+    }
+    
     renderFormula();
+    
     clearTimeout(historySaveTimeout);
     historySaveTimeout = setTimeout(() => {
-      addToHistory(MF.getValue());
+      const contentToSave = MODE.value === 'latex' ? currentLatexCode : INPUT_FIELD.value;
+      addToHistory(contentToSave);
     }, 1500);
   });
+  
+// 監聽模式切換：即時互轉
+MODE.addEventListener('change', () => {
+  if (MODE.value === 'latex') {
+    // 將輸入框現有內容（可能是符號或殘留 LaTeX）統一清理到符號顯示
+    forceCleanInput();
+  } else {
+    // 切到 Unicode 模式時，不做任何轉換，只清空 LaTeX 緩存
+    currentLatexCode = '';
+  }
+  renderFormula();
+});
+
+// 監聽粘貼事件 - 立即轉換
+  INPUT_FIELD.addEventListener('paste', (e) => {
+    if (MODE.value === 'latex') {
+      setTimeout(() => {
+        forceCleanInput();
+      }, 10);
+    }
+  });
+  
+  // 監聽失去焦點事件 - 確保清理
+  INPUT_FIELD.addEventListener('blur', () => {
+    if (MODE.value === 'latex') {
+      forceCleanInput();
+    }
+  });
+  
+  // 定期檢查（每500ms），確保絕對沒有 LaTeX 代碼
+  setInterval(() => {
+    if (MODE.value === 'latex' && INPUT_FIELD.value.includes('\\')) {
+      console.warn('檢測到 LaTeX 代碼，執行清理');
+      forceCleanInput();
+    }
+  }, 500);
 });
