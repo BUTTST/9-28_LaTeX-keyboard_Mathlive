@@ -192,6 +192,18 @@
   .panel-body.collapsed { display: none; }
   
   .keys-common, .keys-other { grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));}
+  
+  /* 矩陣模式：4列網格（數字 + 特殊符號） */
+  .keys-common.matrix-mode {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .keys-common.matrix-mode .key {
+    font-size: 22px;
+    font-weight: 600;
+    min-height: 56px;
+  }
+  
   .keys-numbers {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -204,6 +216,20 @@
   .keys-numbers .key[data-key="0"] { 
     grid-column: 1 / span 2; 
     aspect-ratio: auto;
+  }
+  
+  /* 矩陣樣式選擇器 */
+  .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .toolbar-right label {
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .toolbar-right select {
+    min-width: 140px;
   }
   
   .key{padding:12px;border-radius:10px;text-align:center;cursor:pointer;font-size:18px;transition:background .15s ease,box-shadow .15s ease; display:flex; justify-content:center; align-items:center;}
@@ -227,6 +253,23 @@
   }
   .key-divider:hover {
     background: #d97706;
+  }
+  .key-rowsep {
+    background: #f59e0b;
+    color: white;
+    font-weight: 600;
+    font-size: 20px;
+  }
+  .key-rowsep:hover {
+    background: #d97706;
+  }
+  .key-backspace {
+    background: #ef4444;
+    color: white;
+    font-weight: 600;
+  }
+  .key-backspace:hover {
+    background: #dc2626;
   }
   
   /* 錯誤提示樣式 */

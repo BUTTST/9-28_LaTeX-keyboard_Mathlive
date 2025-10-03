@@ -1,0 +1,24 @@
+# 系統文件
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+
+# 編輯器文件
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 依賴文件
+node_modules/
+npm-debug.log*
+
+# 臨時文件
+*.cache
+*.bak
+
+# 系統目錄
+.Trash-*/
+
+

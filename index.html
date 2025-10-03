@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
-<title>離散數學迷你鍵盤 PWA v8</title>
+<title>數學輸入工具 - 離散數學 & 線性代數 PWA v9</title>
 <meta name="theme-color" content="#151823"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="mobile-web-app-capable" content="yes"/>
@@ -48,6 +48,7 @@ window.MathJax = {
         <option value="latex">輸入/複製 LaTeX</option>
         <option value="unicode">輸入/複製符號</option>
         <option value="prooftree">證明樹模式</option>
+        <option value="matrix">矩陣模式</option>
       </select>
       <div id="history-dropdown" class="history-dropdown" style="display: none;">
         <button id="history-toggle" class="history-toggle">歷史紀錄</button>
@@ -61,6 +62,15 @@ window.MathJax = {
       <button id="clear" class="btn-clear">清空</button>
       <button id="copy-latex" class="btn-secondary">📄 複製 LaTeX</button>
       <button id="copy-unicode" class="btn-primary">📋 複製符號</button>
+    </div>
+    <div class="toolbar-right" id="matrix-style-selector" style="display: none;">
+      <label for="matrix-style">矩陣樣式：</label>
+      <select id="matrix-style">
+        <option value="bmatrix">[ ] 方括號</option>
+        <option value="pmatrix">( ) 圓括號</option>
+        <option value="vmatrix">| | 行列式</option>
+        <option value="matrix">無括號</option>
+      </select>
     </div>
   </div>
 

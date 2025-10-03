@@ -6,6 +6,8 @@ const HISTORY_TOGGLE = document.getElementById('history-toggle');
 const HISTORY_MENU = document.getElementById('history-menu');
 const ERROR_HINT = document.getElementById('error-hint');
 const LINE_NUMBERS = document.getElementById('line-numbers');
+const MATRIX_STYLE_SELECTOR = document.getElementById('matrix-style-selector');
+const MATRIX_STYLE = document.getElementById('matrix-style');
 
 const HISTORY_KEY = 'mini-mathpad-history-v9';
 const MAX_HISTORY_SIZE = 30;
@@ -116,6 +118,12 @@ const KEY_DATA = {
     {label:'f'}, {label:'s'}, {label:'≡', latex:'\\equiv '}, {label:'---', latex:'---\n', isDivider: true},
     {label:'↵', latex:'\n', isNewline: true}
   ],
+  matrix: [
+    {label:'1'}, {label:'2'}, {label:'3'}, {label:'-'},
+    {label:'4'}, {label:'5'}, {label:'6'}, {label:'|', isRowSep: true},
+    {label:'7'}, {label:'8'}, {label:'9'}, {label:' ', label_display:'空格'},
+    {label:'0'}, {label:'.'}, {label:'↵', latex:'\n', isNewline: true}, {label:'⌫', isBackspace: true}
+  ],
   numbers: [
     {label:'7'}, {label:'8'}, {label:'9'},
     {label:'4'}, {label:'5'}, {label:'6'},
@@ -130,6 +138,12 @@ const KEY_DATA = {
     {label:'=', latex:'='}, {label:'≠', latex:'\\neq '}, {label:'↓', latex:'\\downarrow '}, {label:'≤', latex:'\\leq '},
     {label:'≥', latex:'\\geq '}, {label:'⊢', latex:'\\vdash '}, {label:'⊨', latex:'\\models '}, {label:'⟹', latex:'\\Longrightarrow '},
     {label:'⟺', latex:'\\Longleftrightarrow '}
+  ],
+  matrixOther: [
+    {label:'+'}, {label:'-'}, {label:'×', latex:'\\times '}, {label:'·', latex:'\\cdot '},
+    {label:'='}, {label:'≠', latex:'\\neq '}, {label:'A'}, {label:'B'},
+    {label:'C'}, {label:'D'}, {label:'E'}, {label:'F'},
+    {label:'^', latex:'^'}, {label:'T', latex:'^T'}, {label:'⁻¹', latex:'^{-1}'}, {label:'det', latex:'\\det'}
   ]
 };
 
@@ -171,6 +185,14 @@ function addToHistory(latex, options = {}) {
 
 // 獲取歷史紀錄顯示文字（智慧摘要）
 function getHistoryDisplayText(latex) {
+  // 如果包含 | （可能是矩陣），檢查是否為矩陣格式
+  if (latex.includes('|')) {
+    const matrixData = parseMatrixInput(latex);
+    if (matrixData) {
+      return `[矩陣] ${matrixData.rows}×${matrixData.cols}`;
+    }
+  }
+  
   // 如果包含換行（證明樹內容），顯示摘要
   if (latex.includes('\n')) {
     const lines = latex.split('\n').map(s => s.trim()).filter(Boolean);
@@ -205,6 +227,10 @@ function loadHistoryItem(latex) {
     INPUT_FIELD.value = latex;
     currentLatexCode = '';
     autoResizeTextarea();
+  } else if (MODE.value === 'matrix') {
+    // 矩陣模式：直接載入原始輸入
+    INPUT_FIELD.value = latex;
+    currentLatexCode = '';
   } else {
     // Unicode 模式
     INPUT_FIELD.value = latex;
@@ -263,7 +289,7 @@ function updateHistoryDropdown() {
 function createKeyBtn(key){
   const btn = document.createElement('button');
   btn.className = 'key';
-  btn.textContent = key.label;
+  btn.textContent = key.label_display || key.label;
   btn.dataset.key = key.label;
   
   // 特殊樣式
@@ -272,6 +298,12 @@ function createKeyBtn(key){
   }
   if (key.isDivider) {
     btn.classList.add('key-divider');
+  }
+  if (key.isRowSep) {
+    btn.classList.add('key-rowsep');
+  }
+  if (key.isBackspace) {
+    btn.classList.add('key-backspace');
   }
   
   // 普通點擊
@@ -381,6 +413,25 @@ function insertToken(key){
     // 調整 textarea 高度和更新行號
     autoResizeTextarea();
     updateLineNumbers();
+  } else if (MODE.value === 'matrix') {
+    // 矩陣模式：特殊處理
+    if (key.isBackspace) {
+      // 退格按鈕
+      if (start > 0) {
+        INPUT_FIELD.value = currentValue.substring(0, start - 1) + currentValue.substring(end);
+        INPUT_FIELD.setSelectionRange(start - 1, start - 1);
+      }
+    } else if (key.isRowSep) {
+      // 行分隔符 |：插入 | 並自動換行
+      INPUT_FIELD.value = currentValue.substring(0, start) + ' | ' + currentValue.substring(end);
+      const newPos = start + 3;
+      INPUT_FIELD.setSelectionRange(newPos, newPos);
+    } else {
+      // 普通輸入
+      INPUT_FIELD.value = currentValue.substring(0, start) + unicode + currentValue.substring(end);
+      const newPos = start + unicode.length;
+      INPUT_FIELD.setSelectionRange(newPos, newPos);
+    }
   } else {
     // Unicode 模式：直接插入符號
     INPUT_FIELD.value = currentValue.substring(0, start) + unicode + currentValue.substring(end);
@@ -559,7 +610,97 @@ function hideError() {
   }
 }
 
+// 矩陣 DSL 解析：將簡化輸入轉換為矩陣陣列
+function parseMatrixInput(text) {
+  if (!text || !text.trim()) return null;
+  
+  // 按行分割（支援 | 或換行）
+  const rows = text.split(/[|\n]/).map(row => row.trim()).filter(Boolean);
+  
+  if (rows.length === 0) return null;
+  
+  // 解析每一行的元素（按空格分割）
+  const matrix = rows.map(row => {
+    return row.split(/\s+/).filter(el => el.length > 0);
+  });
+  
+  // 檢查矩陣有效性
+  if (matrix.length === 0 || matrix[0].length === 0) {
+    return null;
+  }
+  
+  // 檢查每行元素數量是否一致
+  const colCount = matrix[0].length;
+  const irregularRow = matrix.findIndex(row => row.length !== colCount);
+  
+  if (irregularRow >= 0) {
+    showError(`第 ${irregularRow + 1} 列有 ${matrix[irregularRow].length} 個元素，但第 1 列有 ${colCount} 個元素`);
+  }
+  
+  return {
+    matrix: matrix,
+    rows: matrix.length,
+    cols: colCount,
+    isValid: irregularRow < 0
+  };
+}
+
+// 生成矩陣 LaTeX
+function buildMatrixLatex(matrixData, style = 'bmatrix') {
+  if (!matrixData || !matrixData.matrix) return '';
+  
+  const {matrix} = matrixData;
+  
+  // 生成矩陣內容
+  const matrixContent = matrix.map(row => {
+    return row.join(' & ');
+  }).join(' \\\\\n  ');
+  
+  return [
+    `\\begin{${style}}`,
+    `  ${matrixContent}`,
+    `\\end{${style}}`
+  ].join('\n');
+}
+
+// 獲取矩陣歷史顯示文字
+function getMatrixHistoryDisplayText(text) {
+  const matrixData = parseMatrixInput(text);
+  if (matrixData) {
+    return `[矩陣] ${matrixData.rows}×${matrixData.cols}`;
+  }
+  return text.length > 30 ? text.substring(0, 30) + '...' : text;
+}
+
 function renderFormula(){
+  // 矩陣模式：使用 MathJax 渲染
+  if (MODE.value === 'matrix') {
+    const raw = INPUT_FIELD.value || '';
+    hideError(); // 清除舊錯誤
+    
+    const matrixData = parseMatrixInput(raw);
+    
+    if (matrixData && matrixData.isValid) {
+      const style = MATRIX_STYLE ? MATRIX_STYLE.value : 'bmatrix';
+      const latex = buildMatrixLatex(matrixData, style);
+      currentLatexCode = latex;
+      
+      RENDER.innerHTML = '\\[' + latex + '\\]';
+      // 使用 MathJax 渲染
+      if (window.MathJax && window.MathJax.typesetPromise) {
+        window.MathJax.typesetPromise([RENDER]).catch((err) => {
+          console.error('MathJax 渲染錯誤:', err);
+          showError('渲染失敗，請檢查輸入格式');
+        });
+      }
+    } else if (raw.trim()) {
+      RENDER.textContent = '請輸入矩陣（格式：1 2 3 | 4 5 6）';
+    } else {
+      RENDER.textContent = '(空白)';
+    }
+    return;
+  }
+  
   // 證明樹模式：使用 MathJax 渲染
   if (MODE.value === 'prooftree') {
     const raw = INPUT_FIELD.value || '';
@@ -598,9 +739,27 @@ function populateKeys() {
   const numbersContainer = document.getElementById('keys-numbers');
   const otherContainer = document.getElementById('keys-other');
   
-  KEY_DATA.common.forEach(k => commonContainer.appendChild(createKeyBtn(k)));
-  KEY_DATA.numbers.forEach(k => numbersContainer.appendChild(createKeyBtn(k)));
-  KEY_DATA.other.forEach(k => otherContainer.appendChild(createKeyBtn(k)));
+  // 清空現有按鈕
+  commonContainer.innerHTML = '';
+  numbersContainer.innerHTML = '';
+  otherContainer.innerHTML = '';
+  
+  // 根據模式選擇鍵盤佈局
+  if (MODE.value === 'matrix') {
+    // 矩陣模式：使用矩陣專用鍵盤
+    commonContainer.classList.add('matrix-mode');
+    KEY_DATA.matrix.forEach(k => commonContainer.appendChild(createKeyBtn(k)));
+    KEY_DATA.matrixOther.forEach(k => otherContainer.appendChild(createKeyBtn(k)));
+    // 矩陣模式不使用數字區（已整合到常用區）
+    numbersContainer.parentElement.style.display = 'none';
+  } else {
+    // 其他模式：使用原始鍵盤
+    commonContainer.classList.remove('matrix-mode');
+    KEY_DATA.common.forEach(k => commonContainer.appendChild(createKeyBtn(k)));
+    KEY_DATA.numbers.forEach(k => numbersContainer.appendChild(createKeyBtn(k)));
+    KEY_DATA.other.forEach(k => otherContainer.appendChild(createKeyBtn(k)));
+    numbersContainer.parentElement.style.display = '';
+  }
 }
 
 // 複製符號按鈕 - 始終複製輸入框中的符號
@@ -618,6 +777,13 @@ document.getElementById('copy-latex').onclick = () => {
   } else if (MODE.value === 'prooftree') {
     // 證明樹模式：複製完整的 bussproofs LaTeX
     content = currentLatexCode || buildBussproofsFromSimpleList(INPUT_FIELD.value);
+  } else if (MODE.value === 'matrix') {
+    // 矩陣模式：複製完整的矩陣 LaTeX
+    const matrixData = parseMatrixInput(INPUT_FIELD.value);
+    if (matrixData) {
+      const style = MATRIX_STYLE ? MATRIX_STYLE.value : 'bmatrix';
+      content = buildMatrixLatex(matrixData, style);
+    }
   } else {
     content = unicodeToLatex(INPUT_FIELD.value);
   }
@@ -629,8 +795,8 @@ document.getElementById('clear').onclick = () => {
   let contentToSave = '';
   if (MODE.value === 'latex') {
     contentToSave = currentLatexCode;
-  } else if (MODE.value === 'prooftree') {
-    contentToSave = INPUT_FIELD.value; // 證明樹模式儲存原始輸入
+  } else if (MODE.value === 'prooftree' || MODE.value === 'matrix') {
+    contentToSave = INPUT_FIELD.value; // 證明樹/矩陣模式儲存原始輸入
   } else {
     contentToSave = INPUT_FIELD.value;
   }
@@ -677,15 +843,30 @@ MODE.addEventListener('change', () => {
     currentLatexCode = '';
     autoResizeTextarea();
     updateLineNumbers();
+  } else if (MODE.value === 'matrix') {
+    // 切換到矩陣模式：顯示矩陣樣式選擇器
+    currentLatexCode = '';
+    if (MATRIX_STYLE_SELECTOR) {
+      MATRIX_STYLE_SELECTOR.style.display = 'flex';
+    }
   } else {
     // 切換到 Unicode 模式：保持輸入框內容不變
     currentLatexCode = '';
   }
+  
+  // 隱藏/顯示矩陣樣式選擇器
+  if (MATRIX_STYLE_SELECTOR) {
+    MATRIX_STYLE_SELECTOR.style.display = MODE.value === 'matrix' ? 'flex' : 'none';
+  }
+  
   hideError();
   renderFormula();
   
   // 根據模式顯示/隱藏行號
   updateLineNumbers();
+  
+  // 重新生成鍵盤
+  populateKeys();
 });
 
 HISTORY_TOGGLE.addEventListener('click', () => {
@@ -699,6 +880,14 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// 監聽矩陣樣式變更
+if (MATRIX_STYLE) {
+  MATRIX_STYLE.addEventListener('change', () => {
+    if (MODE.value === 'matrix') {
+      renderFormula();
+    }
+  });
+}
 
 // PWA 功能
 let deferredPrompt;
