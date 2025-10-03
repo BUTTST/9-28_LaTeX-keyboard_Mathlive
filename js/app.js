@@ -4,11 +4,16 @@ const RENDER = document.getElementById('render');
 const HISTORY_DROPDOWN = document.getElementById('history-dropdown');
 const HISTORY_TOGGLE = document.getElementById('history-toggle');
 const HISTORY_MENU = document.getElementById('history-menu');
+const ERROR_HINT = document.getElementById('error-hint');
+const LINE_NUMBERS = document.getElementById('line-numbers');
 
-const HISTORY_KEY = 'mini-mathpad-history-v8';
+const HISTORY_KEY = 'mini-mathpad-history-v9';
 const MAX_HISTORY_SIZE = 30;
 let historyStack = [];
 let historySaveTimeout = null;
+let longPressTimer = null;
+let isLongPress = false;
+let breathingLineTimeout = null;
 
 // LaTeX 到 Unicode 符號的映射表（包含帶空格和不帶空格的版本）
 const LATEX_TO_UNICODE = {
@@ -105,9 +110,11 @@ let currentLatexCode = '';
 
 const KEY_DATA = {
   common: [
-    {label:'p'}, {label:'q'},
-    {label:'~', latex:'\\sim '}, {label:'→', latex:'\\to '}, {label:'∧', latex:'\\land '}, {label:'∨', latex:'\\lor '},
-    {label:'≡', latex:'\\equiv '}, {label:'[', latex:'['}, {label:']', latex:']'}, {label:'(', latex:'('}, {label:')', latex:')'}
+    {label:'p'}, {label:'q'}, {label:'~', latex:'\\sim '}, {label:'→', latex:'\\to '},
+    {label:'∧', latex:'\\land '}, {label:'∨', latex:'\\lor '}, {label:'(', latex:'('}, {label:')', latex:')'},
+    {label:'[', latex:'['}, {label:']', latex:']'}, {label:'t'}, {label:'r'},
+    {label:'f'}, {label:'s'}, {label:'≡', latex:'\\equiv '}, {label:'---', latex:'---\n', isDivider: true},
+    {label:'↵', latex:'\n', isNewline: true}
   ],
   numbers: [
     {label:'7'}, {label:'8'}, {label:'9'},
@@ -162,6 +169,50 @@ function addToHistory(latex, options = {}) {
   updateHistoryDropdown();
 }
 
+// 獲取歷史紀錄顯示文字（智慧摘要）
+function getHistoryDisplayText(latex) {
+  // 如果包含換行（證明樹內容），顯示摘要
+  if (latex.includes('\n')) {
+    const lines = latex.split('\n').map(s => s.trim()).filter(Boolean);
+    const sepIndex = lines.findIndex(l => /^-{3,}$/.test(l));
+    
+    if (sepIndex >= 0) {
+      const premises = lines.slice(0, sepIndex);
+      const conclusion = lines[sepIndex + 1] || '';
+      return `[樹] ${premises.slice(0, 2).join(', ')}${premises.length > 2 ? '...' : ''} ⇒ ${conclusion}`;
+    } else {
+      // 只有前提
+      return `[樹] ${lines.slice(0, 2).join(', ')}${lines.length > 2 ? '...' : ''}`;
+    }
+  }
+  
+  // 如果是 bussproofs LaTeX，顯示摘要
+  if (latex.includes('\\begin{prooftree}')) {
+    return '[樹] (LaTeX 證明樹)';
+  }
+  
+  // 普通內容，截斷過長文字
+  return latex.length > 50 ? latex.substring(0, 50) + '...' : latex;
+}
+
+// 載入歷史紀錄項目（智慧適配當前模式）
+function loadHistoryItem(latex) {
+  if (MODE.value === 'latex') {
+    currentLatexCode = latex;
+    INPUT_FIELD.value = latexToUnicode(latex);
+  } else if (MODE.value === 'prooftree') {
+    // 證明樹模式：直接載入原始輸入
+    INPUT_FIELD.value = latex;
+    currentLatexCode = '';
+    autoResizeTextarea();
+  } else {
+    // Unicode 模式
+    INPUT_FIELD.value = latex;
+    currentLatexCode = '';
+  }
+  renderFormula();
+}
+
 function updateHistoryDropdown() {
   HISTORY_MENU.innerHTML = '';
   HISTORY_DROPDOWN.style.display = 'block'; // Always show the dropdown button
@@ -183,7 +234,10 @@ function updateHistoryDropdown() {
     
     const contentDiv = document.createElement('div');
     contentDiv.style.flex = '1';
-    contentDiv.textContent = item.latex;
+    
+    // 顯示摘要：證明樹模式顯示前提摘要，其他模式顯示原始內容
+    const displayText = getHistoryDisplayText(item.latex);
+    contentDiv.textContent = displayText;
     
     historyItemEl.appendChild(contentDiv);
     
@@ -197,14 +251,7 @@ function updateHistoryDropdown() {
     }
 
     historyItemEl.addEventListener('click', () => {
-      if (MODE.value === 'latex') {
-        currentLatexCode = item.latex;
-        INPUT_FIELD.value = latexToUnicode(item.latex);
-      } else {
-        INPUT_FIELD.value = item.latex;
-        currentLatexCode = '';
-      }
-      renderFormula();
+      loadHistoryItem(item.latex);
       HISTORY_MENU.style.display = 'none';
     });
     
@@ -218,7 +265,69 @@ function createKeyBtn(key){
   btn.className = 'key';
   btn.textContent = key.label;
   btn.dataset.key = key.label;
-  btn.addEventListener('click', () => insertToken(key));
+  
+  // 特殊樣式
+  if (key.isNewline) {
+    btn.classList.add('key-newline');
+  }
+  if (key.isDivider) {
+    btn.classList.add('key-divider');
+  }
+  
+  // 普通點擊
+  btn.addEventListener('click', () => {
+    if (!isLongPress) {
+      insertToken(key);
+    }
+    isLongPress = false;
+  });
+  
+  // 長按功能：針對字母按鈕（p, q, t, r, f, s）切換大小寫
+  const isLetterKey = /^[pqtrfs]$/.test(key.label);
+  
+  if (isLetterKey) {
+    // 觸控裝置
+    btn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      isLongPress = false;
+      longPressTimer = setTimeout(() => {
+        isLongPress = true;
+        const upperKey = {label: key.label.toUpperCase(), latex: key.label.toUpperCase()};
+        insertToken(upperKey);
+        navigator.vibrate && navigator.vibrate(50); // 震動反饋
+      }, 500); // 長按 500ms
+    });
+    
+    btn.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      clearTimeout(longPressTimer);
+    });
+    
+    btn.addEventListener('touchcancel', () => {
+      clearTimeout(longPressTimer);
+      isLongPress = false;
+    });
+    
+    // 滑鼠裝置
+    btn.addEventListener('mousedown', () => {
+      isLongPress = false;
+      longPressTimer = setTimeout(() => {
+        isLongPress = true;
+        const upperKey = {label: key.label.toUpperCase(), latex: key.label.toUpperCase()};
+        insertToken(upperKey);
+      }, 500);
+    });
+    
+    btn.addEventListener('mouseup', () => {
+      clearTimeout(longPressTimer);
+    });
+    
+    btn.addEventListener('mouseleave', () => {
+      clearTimeout(longPressTimer);
+      isLongPress = false;
+    });
+  }
+  
   return btn;
 }
 
@@ -233,7 +342,6 @@ function insertToken(key){
   
   if (MODE.value === 'latex') {
     // LaTeX 模式：在輸入框顯示符號，在 LaTeX 代碼中記錄
-    // 直接使用按鈕的 label（這就是符號）
     const displaySymbol = key.label;
     
     // 更新輸入框（顯示符號）
@@ -247,6 +355,32 @@ function insertToken(key){
     // 設置新的光標位置
     const newPos = start + displaySymbol.length;
     INPUT_FIELD.setSelectionRange(newPos, newPos);
+  } else if (MODE.value === 'prooftree') {
+    // 證明樹模式：特殊處理換行和橫線
+    if (key.isNewline) {
+      // 換行按鈕：插入換行並添加呼吸效果
+      INPUT_FIELD.value = currentValue.substring(0, start) + '\n' + currentValue.substring(end);
+      const newPos = start + 1;
+      INPUT_FIELD.setSelectionRange(newPos, newPos);
+      
+      // 應用呼吸效果
+      applyBreathingEffect();
+    } else if (key.isDivider) {
+      // 橫線按鈕：計算並插入適當長度的橫線
+      const divider = calculateDividerWidth();
+      INPUT_FIELD.value = currentValue.substring(0, start) + '\n' + divider + '\n' + currentValue.substring(end);
+      const newPos = start + divider.length + 2;
+      INPUT_FIELD.setSelectionRange(newPos, newPos);
+    } else {
+      // 普通符號
+      INPUT_FIELD.value = currentValue.substring(0, start) + unicode + currentValue.substring(end);
+      const newPos = start + unicode.length;
+      INPUT_FIELD.setSelectionRange(newPos, newPos);
+    }
+    
+    // 調整 textarea 高度和更新行號
+    autoResizeTextarea();
+    updateLineNumbers();
   } else {
     // Unicode 模式：直接插入符號
     INPUT_FIELD.value = currentValue.substring(0, start) + unicode + currentValue.substring(end);
@@ -259,6 +393,70 @@ function insertToken(key){
   
   INPUT_FIELD.focus();
   renderFormula();
+}
+
+// 自動調整 textarea 高度
+function autoResizeTextarea() {
+  INPUT_FIELD.style.height = 'auto';
+  const newHeight = Math.min(Math.max(INPUT_FIELD.scrollHeight, 50), 300); // 最小 50px，最大 300px
+  INPUT_FIELD.style.height = newHeight + 'px';
+}
+
+// 更新行號顯示
+function updateLineNumbers() {
+  if (MODE.value !== 'prooftree') {
+    LINE_NUMBERS.classList.remove('active');
+    return;
+  }
+  
+  LINE_NUMBERS.classList.add('active');
+  const lines = INPUT_FIELD.value.split('\n');
+  const lineCount = Math.max(lines.length, 1);
+  
+  // 獲取當前光標所在行
+  const cursorPos = INPUT_FIELD.selectionStart;
+  const textBeforeCursor = INPUT_FIELD.value.substring(0, cursorPos);
+  const currentLine = textBeforeCursor.split('\n').length;
+  
+  // 生成行號 HTML
+  let lineNumbersHTML = '';
+  for (let i = 1; i <= lineCount; i++) {
+    const isCurrent = i === currentLine;
+    lineNumbersHTML += `<span class="line-number${isCurrent ? ' current' : ''}">${i}</span>`;
+  }
+  
+  LINE_NUMBERS.innerHTML = lineNumbersHTML;
+  
+  // 同步滾動
+  LINE_NUMBERS.scrollTop = INPUT_FIELD.scrollTop;
+}
+
+// 計算橫線寬度
+function calculateDividerWidth() {
+  const lines = INPUT_FIELD.value.split('\n').filter(line => !line.match(/^[─—-]+$/));
+  const maxLength = Math.max(...lines.map(line => line.length), 0);
+  return '—'.repeat(Math.max(maxLength + 2, 3));
+}
+
+// 呼吸動畫效果
+function applyBreathingEffect() {
+  // 移除現有的呼吸效果
+  INPUT_FIELD.classList.remove('breathing-line');
+  
+  // 清除之前的計時器
+  if (breathingLineTimeout) {
+    clearTimeout(breathingLineTimeout);
+  }
+  
+  // 立即重新添加以觸發動畫
+  setTimeout(() => {
+    INPUT_FIELD.classList.add('breathing-line');
+  }, 10);
+  
+  // 3秒後自動移除效果
+  breathingLineTimeout = setTimeout(() => {
+    INPUT_FIELD.classList.remove('breathing-line');
+  }, 3000);
 }
 
 // 將 Unicode 符號轉換回 LaTeX
@@ -288,11 +486,109 @@ function latexToUnicode(text) {
   return result;
 }
 
+// 證明樹 DSL 解析：將簡化語法轉換為 bussproofs LaTeX
+function buildBussproofsFromSimpleList(text) {
+  const lines = (text || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  let sepIndex = lines.findIndex(l => /^[─—-]{3,}$/.test(l)); // 支援視覺化橫線
+  
+  // 錯誤處理：沒有分隔符
+  if (sepIndex < 0) {
+    if (lines.length === 0) {
+      return '';
+    }
+    // 全部視為前提，無結論
+    showError('未找到分隔符，將全部視為前提');
+    sepIndex = lines.length;
+  }
+  
+  const premises = lines.slice(0, sepIndex).filter(line => !line.match(/^[─—-]+$/));
+  const conclusions = lines.slice(sepIndex + 1).filter(line => !line.match(/^[─—-]+$/));
+  const conclusion = conclusions[0] || '';
+  
+  // 錯誤處理：前提過多
+  if (premises.length > 5) {
+    showError(`前提數量過多 (${premises.length} 個)，建議不超過 5 個以保證顯示效果`);
+  }
+  
+  // 錯誤處理：無前提
+  if (premises.length === 0) {
+    showError('沒有前提，至少需要一個前提');
+  }
+  
+  // 生成 Axiom 行
+  const axiomLines = premises.map(p => `  \\AxiomC{$${unicodeToLatex(p)}$}`).join('\n');
+  
+  // 根據前提數量選擇推理規則
+  const inferenceMap = {
+    0: 'Nullary',
+    1: 'Unary',
+    2: 'Binary',
+    3: 'Trinary',
+    4: 'Quaternary',
+    5: 'Quinary'
+  };
+  const infRule = inferenceMap[premises.length] || 'Binary';
+  
+  return [
+    '\\begin{prooftree}',
+    axiomLines || '  % (無前提)',
+    `  \\${infRule}InfC{$${unicodeToLatex(conclusion)}$}`,
+    '\\end{prooftree}'
+  ].join('\n');
+}
+
+// 顯示錯誤提示
+function showError(message) {
+  if (!ERROR_HINT) return;
+  const errorText = ERROR_HINT.querySelector('.error-text');
+  if (errorText) {
+    errorText.textContent = message;
+  }
+  ERROR_HINT.style.display = 'flex';
+  
+  // 3秒後自動隱藏
+  setTimeout(() => {
+    ERROR_HINT.style.display = 'none';
+  }, 3000);
+}
+
+// 隱藏錯誤提示
+function hideError() {
+  if (ERROR_HINT) {
+    ERROR_HINT.style.display = 'none';
+  }
+}
+
 function renderFormula(){
-  // 下方顯示區始終顯示 LaTeX 代碼
+  // 證明樹模式：使用 MathJax 渲染
+  if (MODE.value === 'prooftree') {
+    const raw = INPUT_FIELD.value || '';
+    hideError(); // 清除舊錯誤
+    
+    // 如果使用者直接貼了完整 bussproofs，直接渲染；否則用 DSL 轉換
+    const latex = /\\begin\{prooftree\}/.test(raw) ? raw : buildBussproofsFromSimpleList(raw);
+    currentLatexCode = latex;
+    
+    if (latex) {
+      RENDER.innerHTML = '\\[' + latex + '\\]';
+      // 使用 MathJax 渲染
+      if (window.MathJax && window.MathJax.typesetPromise) {
+        window.MathJax.typesetPromise([RENDER]).catch((err) => {
+          console.error('MathJax 渲染錯誤:', err);
+          showError('渲染失敗，請檢查輸入格式');
+        });
+      }
+    } else {
+      RENDER.textContent = '(空白)';
+    }
+    return;
+  }
+  
+  // LaTeX 模式
   if (MODE.value === 'latex') {
     RENDER.textContent = currentLatexCode || '(空白)';
   } else {
+    // Unicode 模式
     RENDER.textContent = INPUT_FIELD.value || '(空白)';
   }
 }
@@ -316,18 +612,35 @@ document.getElementById('copy-unicode').onclick = () => {
 
 // 複製 LaTeX 按鈕 - 複製對應的 LaTeX 代碼
 document.getElementById('copy-latex').onclick = () => {
-  const content = MODE.value === 'latex' ? currentLatexCode : unicodeToLatex(INPUT_FIELD.value);
+  let content = '';
+  if (MODE.value === 'latex') {
+    content = currentLatexCode;
+  } else if (MODE.value === 'prooftree') {
+    // 證明樹模式：複製完整的 bussproofs LaTeX
+    content = currentLatexCode || buildBussproofsFromSimpleList(INPUT_FIELD.value);
+  } else {
+    content = unicodeToLatex(INPUT_FIELD.value);
+  }
   navigator.clipboard.writeText(content || '');
   showCopyFeedback('copy-latex', '✓ 已複製 LaTeX');
 };
 
 document.getElementById('clear').onclick = () => {
-  const contentToSave = MODE.value === 'latex' ? currentLatexCode : INPUT_FIELD.value;
+  let contentToSave = '';
+  if (MODE.value === 'latex') {
+    contentToSave = currentLatexCode;
+  } else if (MODE.value === 'prooftree') {
+    contentToSave = INPUT_FIELD.value; // 證明樹模式儲存原始輸入
+  } else {
+    contentToSave = INPUT_FIELD.value;
+  }
+  
   if (contentToSave.trim()) {
     addToHistory(contentToSave, { cleared: true });
   }
   INPUT_FIELD.value = '';
   currentLatexCode = '';
+  hideError();
   renderFormula();
 };
 
@@ -359,11 +672,20 @@ MODE.addEventListener('change', () => {
     const currentValue = INPUT_FIELD.value;
     currentLatexCode = unicodeToLatex(currentValue);
     INPUT_FIELD.value = latexToUnicode(currentLatexCode);
+  } else if (MODE.value === 'prooftree') {
+    // 切換到證明樹模式：保持輸入框內容，調整高度，顯示行號
+    currentLatexCode = '';
+    autoResizeTextarea();
+    updateLineNumbers();
   } else {
     // 切換到 Unicode 模式：保持輸入框內容不變
     currentLatexCode = '';
   }
+  hideError();
   renderFormula();
+  
+  // 根據模式顯示/隱藏行號
+  updateLineNumbers();
 });
 
 HISTORY_TOGGLE.addEventListener('click', () => {
@@ -515,12 +837,24 @@ document.addEventListener('DOMContentLoaded', () => {
   
   renderFormula();
   
-  // 監聽輸入事件 - 即時轉換 LaTeX 為符號
+  // 監聽輸入事件
   INPUT_FIELD.addEventListener('input', (e) => {
     if (MODE.value === 'latex') {
-      // 立即強制清理
+      // LaTeX 模式：立即強制清理
       forceCleanInput();
+    } else if (MODE.value === 'prooftree') {
+      // 證明樹模式：調整高度和更新行號
+      currentLatexCode = '';
+      autoResizeTextarea();
+      updateLineNumbers();
+      
+      // 停止呼吸效果（使用者開始輸入）
+      INPUT_FIELD.classList.remove('breathing-line');
+      if (breathingLineTimeout) {
+        clearTimeout(breathingLineTimeout);
+      }
     } else {
+      // Unicode 模式
       currentLatexCode = '';
     }
     
@@ -533,23 +867,37 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1500);
   });
   
-// 監聽模式切換：即時互轉
-MODE.addEventListener('change', () => {
-  if (MODE.value === 'latex') {
-    // 將輸入框現有內容（可能是符號或殘留 LaTeX）統一清理到符號顯示
-    forceCleanInput();
-  } else {
-    // 切到 Unicode 模式時，不做任何轉換，只清空 LaTeX 緩存
-    currentLatexCode = '';
-  }
-  renderFormula();
-});
+  // 監聽光標位置變化（更新當前行號）
+  INPUT_FIELD.addEventListener('click', () => {
+    if (MODE.value === 'prooftree') {
+      updateLineNumbers();
+    }
+  });
+  
+  INPUT_FIELD.addEventListener('keyup', () => {
+    if (MODE.value === 'prooftree') {
+      updateLineNumbers();
+    }
+  });
+  
+  // 監聽滾動事件（同步行號滾動）
+  INPUT_FIELD.addEventListener('scroll', () => {
+    if (LINE_NUMBERS && MODE.value === 'prooftree') {
+      LINE_NUMBERS.scrollTop = INPUT_FIELD.scrollTop;
+    }
+  });
+  
+// 移除重複的模式切換監聽（已在上方定義）
 
-// 監聽粘貼事件 - 立即轉換
+// 監聽粘貼事件
   INPUT_FIELD.addEventListener('paste', (e) => {
     if (MODE.value === 'latex') {
       setTimeout(() => {
         forceCleanInput();
+      }, 10);
+    } else if (MODE.value === 'prooftree') {
+      setTimeout(() => {
+        autoResizeTextarea();
       }, 10);
     }
   });
