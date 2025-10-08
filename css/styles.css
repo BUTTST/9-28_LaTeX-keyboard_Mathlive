@@ -240,28 +240,29 @@
   
   /* 手機鍵盤控制選項 */
   .osk-control {
-    background: var(--panel);
+    background: rgba(21, 24, 35, 0.5);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 8px 12px;
+    border-radius: 8px;
+    padding: 4px 8px;
   }
   .osk-control label {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     cursor: pointer;
     user-select: none;
     margin: 0;
   }
   .osk-control input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     cursor: pointer;
     accent-color: var(--accent);
+    flex-shrink: 0;
   }
   .osk-label {
-    font-size: 14px;
-    color: var(--text);
+    font-size: 12px;
+    color: var(--muted);
     white-space: nowrap;
   }
   
@@ -429,19 +430,17 @@
     
     /* 手機端 OSK 控制選項 */
     .osk-control {
-      width: 100%;
-      justify-content: center;
+      padding: 6px 10px;
     }
     .osk-control label {
-      min-height: 44px;
-      padding: 4px 0;
+      min-height: 32px;
     }
     .osk-control input[type="checkbox"] {
-      width: 24px;
-      height: 24px;
+      width: 18px;
+      height: 18px;
     }
     .osk-label {
-      font-size: 16px;
+      font-size: 13px;
     }
     
     /* 手機端佈局：縱向堆疊 */

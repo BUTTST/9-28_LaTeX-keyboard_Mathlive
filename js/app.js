@@ -307,36 +307,40 @@ function createKeyBtn(key){
     btn.classList.add('key-backspace');
   }
   
-  // 防止點擊按鈕時觸發輸入框焦點（避免 OSK 彈出）
-  btn.addEventListener('pointerdown', (e) => e.preventDefault());
-  btn.addEventListener('touchstart', (e) => e.preventDefault(), {passive: false});
+  // 長按功能：針對字母按鈕（p, q, t, r, f, s）切換大小寫
+  const isLetterKey = /^[pqtrfs]$/.test(key.label);
   
-  // 普通點擊
-  btn.addEventListener('click', () => {
+  // 普通點擊（優先處理，確保響應迅速）
+  btn.addEventListener('click', (e) => {
+    // 防止焦點轉移到輸入框（僅在禁止 OSK 時）
+    if (!ALLOW_OSK?.checked) {
+      e.preventDefault();
+      // 保持按鈕焦點，防止輸入框獲得焦點
+      btn.focus();
+      // 立即失焦，避免按鈕保持焦點狀態
+      setTimeout(() => btn.blur(), 10);
+    }
+    
     if (!isLongPress) {
       insertToken(key);
     }
     isLongPress = false;
   });
   
-  // 長按功能：針對字母按鈕（p, q, t, r, f, s）切換大小寫
-  const isLetterKey = /^[pqtrfs]$/.test(key.label);
-  
+  // 長按功能（僅字母按鈕）
   if (isLetterKey) {
     // 觸控裝置
     btn.addEventListener('touchstart', (e) => {
-      e.preventDefault();
       isLongPress = false;
       longPressTimer = setTimeout(() => {
         isLongPress = true;
         const upperKey = {label: key.label.toUpperCase(), latex: key.label.toUpperCase()};
         insertToken(upperKey);
-        navigator.vibrate && navigator.vibrate(50); // 震動反饋
-      }, 500); // 長按 500ms
-    });
+        navigator.vibrate && navigator.vibrate(50);
+      }, 500);
+    }, {passive: true});
     
-    btn.addEventListener('touchend', (e) => {
-      e.preventDefault();
+    btn.addEventListener('touchend', () => {
       clearTimeout(longPressTimer);
     });
     
@@ -634,11 +638,7 @@ function applyOskPolicy() {
     // 允許系統鍵盤：移除 readonly，設置 inputmode 為 text
     INPUT_FIELD.removeAttribute('readonly');
     INPUT_FIELD.setAttribute('inputmode', 'text');
-    // Safari 需要先 blur 再 focus 才會套用新的 inputmode
-    INPUT_FIELD.blur();
-    setTimeout(() => {
-      INPUT_FIELD.focus();
-    }, 50);
+    // 不自動 focus，讓使用者自己點擊輸入框
   } else {
     // 禁止系統鍵盤：設置 readonly，設置 inputmode 為 none
     INPUT_FIELD.setAttribute('readonly', 'readonly');
