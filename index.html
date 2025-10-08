@@ -41,7 +41,9 @@ window.MathJax = {
   <div class="input-row">
     <div class="input-wrapper">
       <div id="line-numbers" class="line-numbers"></div>
-      <textarea id="input-field" placeholder="在此輸入或點擊符號按鈕..." rows="2"></textarea>
+      <textarea id="input-field" placeholder="在此輸入或點擊符號按鈕..." rows="2"
+                autocomplete="off" autocapitalize="off" autocorrect="off"
+                inputmode="none" readonly></textarea>
     </div>
     <div class="mode-history-container">
       <select id="mode">
@@ -63,14 +65,22 @@ window.MathJax = {
       <button id="copy-latex" class="btn-secondary">📄 複製 LaTeX</button>
       <button id="copy-unicode" class="btn-primary">📋 複製符號</button>
     </div>
-    <div class="toolbar-right" id="matrix-style-selector" style="display: none;">
-      <label for="matrix-style">矩陣樣式：</label>
-      <select id="matrix-style">
-        <option value="bmatrix">[ ] 方括號</option>
-        <option value="pmatrix">( ) 圓括號</option>
-        <option value="vmatrix">| | 行列式</option>
-        <option value="matrix">無括號</option>
-      </select>
+    <div class="toolbar-right">
+      <div id="matrix-style-selector" style="display: none;">
+        <label for="matrix-style">矩陣樣式：</label>
+        <select id="matrix-style">
+          <option value="bmatrix">[ ] 方括號</option>
+          <option value="pmatrix">( ) 圓括號</option>
+          <option value="vmatrix">| | 行列式</option>
+          <option value="matrix">無括號</option>
+        </select>
+      </div>
+      <div class="osk-control">
+        <label for="allow-osk">
+          <input type="checkbox" id="allow-osk">
+          <span class="osk-label">允許手機內建鍵盤</span>
+        </label>
+      </div>
     </div>
   </div>
 

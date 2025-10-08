@@ -8,6 +8,7 @@ const ERROR_HINT = document.getElementById('error-hint');
 const LINE_NUMBERS = document.getElementById('line-numbers');
 const MATRIX_STYLE_SELECTOR = document.getElementById('matrix-style-selector');
 const MATRIX_STYLE = document.getElementById('matrix-style');
+const ALLOW_OSK = document.getElementById('allow-osk');
 
 const HISTORY_KEY = 'mini-mathpad-history-v9';
 const MAX_HISTORY_SIZE = 30;
@@ -306,6 +307,10 @@ function createKeyBtn(key){
     btn.classList.add('key-backspace');
   }
   
+  // 防止點擊按鈕時觸發輸入框焦點（避免 OSK 彈出）
+  btn.addEventListener('pointerdown', (e) => e.preventDefault());
+  btn.addEventListener('touchstart', (e) => e.preventDefault(), {passive: false});
+  
   // 普通點擊
   btn.addEventListener('click', () => {
     if (!isLongPress) {
@@ -366,6 +371,12 @@ function createKeyBtn(key){
 function insertToken(key){
   const latex = key.latex ?? key.label;
   const unicode = key.uni ?? key.label;
+  
+  // 暫時移除 readonly 以允許程式化插入（只在禁止 OSK 時需要）
+  const wasReadonly = INPUT_FIELD.hasAttribute('readonly');
+  if (wasReadonly && !ALLOW_OSK?.checked) {
+    INPUT_FIELD.removeAttribute('readonly');
+  }
   
   // 獲取當前光標位置
   const start = INPUT_FIELD.selectionStart;
@@ -440,6 +451,11 @@ function insertToken(key){
     // 設置新的光標位置
     const newPos = start + unicode.length;
     INPUT_FIELD.setSelectionRange(newPos, newPos);
+  }
+  
+  // 恢復 readonly 屬性（如果原本是 readonly）
+  if (wasReadonly && !ALLOW_OSK?.checked) {
+    INPUT_FIELD.setAttribute('readonly', 'readonly');
   }
   
   INPUT_FIELD.focus();
@@ -607,6 +623,27 @@ function showError(message) {
 function hideError() {
   if (ERROR_HINT) {
     ERROR_HINT.style.display = 'none';
+  }
+}
+
+// 控制系統鍵盤（OSK）的顯示行為
+function applyOskPolicy() {
+  if (!ALLOW_OSK || !INPUT_FIELD) return;
+  
+  if (ALLOW_OSK.checked) {
+    // 允許系統鍵盤：移除 readonly，設置 inputmode 為 text
+    INPUT_FIELD.removeAttribute('readonly');
+    INPUT_FIELD.setAttribute('inputmode', 'text');
+    // Safari 需要先 blur 再 focus 才會套用新的 inputmode
+    INPUT_FIELD.blur();
+    setTimeout(() => {
+      INPUT_FIELD.focus();
+    }, 50);
+  } else {
+    // 禁止系統鍵盤：設置 readonly，設置 inputmode 為 none
+    INPUT_FIELD.setAttribute('readonly', 'readonly');
+    INPUT_FIELD.setAttribute('inputmode', 'none');
+    INPUT_FIELD.blur();
   }
 }
 
@@ -1018,6 +1055,12 @@ function forceCleanInput() {
 document.addEventListener('DOMContentLoaded', () => {
   populateKeys();
   loadHistory();
+  
+  // 初始化 OSK 控制（預設禁止系統鍵盤）
+  if (ALLOW_OSK) {
+    ALLOW_OSK.addEventListener('change', applyOskPolicy);
+    applyOskPolicy();
+  }
   
   // 初始化：立即轉換任何 LaTeX 代碼
   setTimeout(() => {
